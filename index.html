@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Periodic Tile Generator - With Ions</title>
+    <title>Periodic Tile Generator - Custom Ion Notation</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -38,7 +38,7 @@
             box-shadow: 12px 12px 0px rgba(0,0,0,0.2);
             margin-bottom: 30px;
             transition: background-color 0.4s ease;
-            position: relative; /* Needed for absolute positioning of charge */
+            position: relative; 
         }
 
         /* Ion Charge Display (Top Right) */
@@ -178,11 +178,9 @@
 
     <div class="tile-container" id="elementTile">
         <div class="ion-charge" id="disp-charge"></div>
-        
         <div class="atomic-number" id="disp-number">1</div>
         <div class="symbol" id="disp-symbol">H</div>
         <div class="element-name" id="disp-name">Hydrogen</div>
-        
         <div style="width:100%; text-align:center;">
              <div class="atomic-mass" id="disp-mass">1</div>
              <div class="group-label" id="disp-group">Nonmetal</div>
@@ -219,8 +217,7 @@
     </div>
 
     <script>
-        // 1. Expanded Data with 'ions' array
-        // Listed are common oxidation states suitable for a basic chemistry context.
+        // Full Data
         const periodicTable = [
             {n:1, s:"H", name:"Hydrogen", m:1.008, iso:[1, 2, 3], ions:[1, -1]}, 
             {n:2, s:"He", name:"Helium", m:4.0026, iso:[3, 4], ions:[]},
@@ -242,8 +239,6 @@
             {n:18, s:"Ar", name:"Argon", m:39.948, iso:[36, 38, 40], ions:[]},
             {n:19, s:"K", name:"Potassium", m:39.098, iso:[39, 40, 41], ions:[1]}, 
             {n:20, s:"Ca", name:"Calcium", m:40.078, iso:[40, 42, 43, 44, 46, 48], ions:[2]},
-            
-            // Transition Metals & Others (Selected common ones)
             {n:21, s:"Sc", name:"Scandium", m:44.956, ions:[3]},
             {n:22, s:"Ti", name:"Titanium", m:47.867, ions:[2, 3, 4]},
             {n:23, s:"V", name:"Vanadium", m:50.942, ions:[2, 3, 4, 5]},
@@ -281,14 +276,14 @@
              return { c: "#e0e0e0", g: "Metal" };
         }
 
-        // Helper to format charge (e.g., 1 -> "+", -1 -> "-", 2 -> "2+")
+        // UPDATED: Logic for Signs
         function formatCharge(c) {
             if (c === 0) return "";
-            if (c === 1) return "+";
-            if (c === -1) return "−"; // minus symbol
+            if (c === 1) return "+";   // Just plus
+            if (c === -1) return "−";  // Just minus (using proper symbol)
             
-            const sign = c > 0 ? "+" : "−";
-            return Math.abs(c) + sign;
+            const sign = c > 0 ? "+" : "";
+            return sign + c;           // e.g., +2 or -2
         }
 
         function findElement() {
@@ -298,24 +293,9 @@
             const isoSelect = document.getElementById('isotopeSelect');
             const ionSelect = document.getElementById('ionSelect');
 
-            // --- 1. Find the element from our list or generate a placeholder ---
-            // If the element is not in our detailed list (like Z=45), we create a basic object
-            // so the app doesn't crash, but it won't have ions/isotopes.
             let found = periodicTable.find(e => e.n === inputVal);
             
             if (!found && inputVal >= 1 && inputVal <= 118) {
-                // Fallback for elements I didn't type out fully in this demo
-                // Fetching name/mass generically would require a bigger DB, 
-                // so we will show a placeholder note if not in my short DB.
-                // However, for this demo, I will map the input to the array index if possible
-                // OR alert the user.
-                
-                // Better approach for this demo: Try to find by index if array was full.
-                // Since array is sparse in this snippet:
-                // We will just alert if not in the specific list above for ions.
-                // BUT, to keep the previous functionality, I will assume the previous full list 
-                // is present in your mind, but for this code block I only included the ones with Ions.
-                // *Self-correction*: I'll just use the object I have. If not found:
                 errorDiv.innerText = "Element data not in demo set (Try 1-20, Fe, Cu, Au, U).";
                 return;
             } else if (!found) {
@@ -326,7 +306,6 @@
             errorDiv.innerText = "";
             currentElement = found;
 
-            // --- 2. Update Visuals ---
             const groupInfo = getElementGroup(currentElement.n);
             document.getElementById('disp-number').innerText = currentElement.n;
             document.getElementById('disp-symbol').innerText = currentElement.s;
@@ -334,7 +313,7 @@
             document.getElementById('disp-group').innerText = groupInfo.g;
             tile.style.backgroundColor = groupInfo.c;
 
-            // --- 3. Populate Isotopes Dropdown ---
+            // Isotopes
             isoSelect.innerHTML = ""; 
             const stdOption = document.createElement("option");
             stdOption.value = "standard";
@@ -350,7 +329,7 @@
                 });
             }
 
-            // --- 4. Populate Ions Dropdown ---
+            // Ions
             ionSelect.innerHTML = "";
             const neutralOption = document.createElement("option");
             neutralOption.value = "0";
@@ -361,21 +340,18 @@
                 currentElement.ions.forEach(charge => {
                     const opt = document.createElement("option");
                     opt.value = charge;
-                    // Labeling: "+2", "-1", etc.
-                    const label = charge > 0 ? `+${charge}` : `${charge}`;
-                    opt.text = `Ion (${label})`;
+                    // Use formatting function here too for consistency
+                    opt.text = `Ion (${formatCharge(charge)})`;
                     ionSelect.add(opt);
                 });
             }
 
-            // Trigger visual update
             updateTile();
         }
 
         function updateTile() {
             if (!currentElement) return;
 
-            // 1. Handle Mass
             const isoSelect = document.getElementById('isotopeSelect');
             const massDisplay = document.getElementById('disp-mass');
             if (isoSelect.value === "standard") {
@@ -384,13 +360,12 @@
                 massDisplay.innerText = isoSelect.value;
             }
 
-            // 2. Handle Ion Charge Display
             const ionSelect = document.getElementById('ionSelect');
             const chargeVal = parseInt(ionSelect.value);
             const chargeDisplay = document.getElementById('disp-charge');
 
             if (chargeVal === 0) {
-                chargeDisplay.innerText = ""; // Hide if neutral
+                chargeDisplay.innerText = ""; 
             } else {
                 chargeDisplay.innerText = formatCharge(chargeVal);
             }
@@ -402,19 +377,13 @@
             const isoSelect = document.getElementById('isotopeSelect');
             const ionSelect = document.getElementById('ionSelect');
             
-            // Generate nice filename
             let filename = `${elementName}`;
-            
-            // Append Isotope if changed
             if (isoSelect.value !== "standard") {
                 filename += `-${isoSelect.value}`;
             }
-            
-            // Append Ion if changed
             if (ionSelect.value !== "0") {
                 filename += `-Ion`;
             }
-            
             filename += `-Tile.png`;
 
             html2canvas(tileElement, {
@@ -435,8 +404,7 @@
             });
         }
 
-        // Initialize
-        findElement(); // Loads Hydrogen by default
+        findElement(); 
 
         document.getElementById("numInput").addEventListener("keypress", function(event) {
             if (event.key === "Enter") findElement();
