@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Periodic Tile Generator - Full 118 Elements</title>
+    <title>Periodic Tile Generator & Practice</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --bg-color: #f0f2f5;
             --tile-border: #222;
+            --accent: #007bff;
+            --success: #28a745;
+            --error: #dc3545;
         }
 
         body {
@@ -22,6 +25,34 @@
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
+        }
+
+        /* --- Mode Toggle Tabs --- */
+        .mode-tabs {
+            display: flex;
+            background: #fff;
+            padding: 5px;
+            border-radius: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        .tab-btn {
+            padding: 10px 25px;
+            border: none;
+            background: transparent;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+            border-radius: 25px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent);
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,123,255,0.3);
         }
 
         /* --- The Tile --- */
@@ -48,7 +79,6 @@
             border-color: #000;
         }
 
-        /* Ion Charge Display (Top Right) */
         .ion-charge {
             position: absolute;
             top: 15px;
@@ -100,7 +130,7 @@
             margin-top: 10px;
         }
 
-        /* --- Controls --- */
+        /* --- Controls Container --- */
         .controls-wrapper {
             background: white;
             padding: 25px 35px;
@@ -109,8 +139,10 @@
             text-align: center;
             max-width: 500px;
             width: 100%;
+            min-height: 200px; /* Prevent jump when switching modes */
         }
 
+        /* --- Generator Controls --- */
         .input-row {
             display: flex;
             gap: 15px;
@@ -165,12 +197,13 @@
         }
 
         button:active { transform: scale(0.98); }
-
         .btn-generate { background-color: #333; }
         .btn-generate:hover { background-color: #000; }
-
         .btn-download { background-color: #28a745; }
         .btn-download:hover { filter: brightness(1.1); }
+        .btn-check { background-color: var(--accent); }
+        .btn-check:hover { filter: brightness(1.1); }
+        .btn-solution { background-color: #6c757d; font-size: 0.9rem;} 
 
         .error-msg {
             color: #d9534f;
@@ -179,10 +212,54 @@
             font-size: 0.9rem;
             font-weight: bold;
         }
+
+        /* --- Practice Mode Styles --- */
+        .practice-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .practice-input-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .practice-input-wrap input {
+            width: 100%;
+            border: 2px solid #ddd;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Validation Colors */
+        .correct {
+            border-color: var(--success) !important;
+            background-color: #d4edda;
+            color: var(--success) !important;
+        }
+        .incorrect {
+            border-color: var(--error) !important;
+            background-color: #f8d7da;
+            color: var(--error) !important;
+        }
+
+        .hidden-mode {
+            display: none;
+        }
     </style>
 </head>
 <body>
 
+    <!-- Mode Tabs -->
+    <div class="mode-tabs">
+        <button class="tab-btn active" id="tab-gen" onclick="switchMode('generator')">Generator</button>
+        <button class="tab-btn" id="tab-prac" onclick="switchMode('practice')">Practice Mode</button>
+    </div>
+
+    <!-- The Tile -->
     <figure class="tile-container" id="elementTile" tabindex="0" role="button" aria-label="Periodic Element Tile">
         <div class="ion-charge" id="disp-charge"></div>
         <div class="atomic-number" id="disp-number">1</div>
@@ -195,37 +272,78 @@
     </figure>
 
     <div class="controls-wrapper">
-        <div class="input-row">
-            <div class="input-group">
-                <label for="numInput">Atomic #</label>
-                <input type="number" id="numInput" min="1" max="118" value="1">
+        
+        <!-- Generator Controls -->
+        <div id="generator-controls">
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="numInput">Atomic #</label>
+                    <input type="number" id="numInput" min="1" max="118" value="1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="isotopeSelect">Isotope</label>
+                    <select id="isotopeSelect" onchange="updateTile()">
+                        <option value="standard">Standard</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="ionSelect">Ion Charge</label>
+                    <select id="ionSelect" onchange="updateTile()">
+                        <option value="0">Neutral</option>
+                    </select>
+                </div>
             </div>
             
-            <div class="input-group">
-                <label for="isotopeSelect">Isotope</label>
-                <select id="isotopeSelect" onchange="updateTile()">
-                    <option value="standard">Standard</option>
-                </select>
+            <div class="btn-group">
+                <button class="btn-generate" onclick="findElement()">Find Element</button>
+                <button class="btn-download" onclick="downloadTile()">Download PNG</button>
+            </div>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+
+        <!-- Practice Controls -->
+        <div id="practice-controls" class="hidden-mode">
+            <p style="margin-top:0; color:#666; font-size:0.9rem; margin-bottom:15px;">
+                Calculate the subatomic particles based on the tile above.
+            </p>
+            
+            <div class="practice-grid">
+                <div class="practice-input-wrap">
+                    <label>Z</label>
+                    <input type="number" id="prac-z" placeholder="?">
+                </div>
+                <div class="practice-input-wrap">
+                    <label>A</label>
+                    <input type="number" id="prac-a" placeholder="?">
+                </div>
+                <div class="practice-input-wrap">
+                    <label>Proton</label>
+                    <input type="number" id="prac-p" placeholder="?">
+                </div>
+                <div class="practice-input-wrap">
+                    <label>Neutron</label>
+                    <input type="number" id="prac-n" placeholder="?">
+                </div>
+                <div class="practice-input-wrap">
+                    <label>Electron</label>
+                    <input type="number" id="prac-e" placeholder="?">
+                </div>
             </div>
 
-            <div class="input-group">
-                <label for="ionSelect">Ion Charge</label>
-                <select id="ionSelect" onchange="updateTile()">
-                    <option value="0">Neutral</option>
-                </select>
+            <div class="btn-group">
+                <button class="btn-generate" onclick="generatePracticeQuestion()">New Question</button>
+                <button class="btn-check" onclick="checkPracticeAnswer()">Check Answer</button>
+                <button class="btn-solution" onclick="showSolution()">Solution</button>
             </div>
+            <div class="error-msg" id="practiceMsg"></div>
         </div>
-        
-        <div class="btn-group">
-            <button class="btn-generate" onclick="findElement()">Find Element</button>
-            <button class="btn-download" onclick="downloadTile()">Download PNG</button>
-        </div>
-        <div class="error-msg" id="errorMsg"></div>
+
     </div>
 
     <script>
         // Full Data for 1-118 Elements
-        // Includes common stable isotopes and common oxidation states.
         const periodicTable = [
             {n:1, s:"H", name:"Hydrogen", m:1.008, iso:[1, 2], ions:[1, -1]},
             {n:2, s:"He", name:"Helium", m:4.0026, iso:[3, 4], ions:[]},
@@ -348,7 +466,10 @@
         ];
 
         let currentElement = null;
+        let practiceData = { Z:0, A:0, p:0, n:0, e:0 };
+        let mode = 'generator';
 
+        // --- Helpers ---
         function getElementGroup(n) {
              if (n === 1) return { c: "#ffcdd2", g: "Nonmetal" };
              if ([2, 10, 18, 36, 54, 86, 118].includes(n)) return { c: "#e1bee7", g: "Noble Gas" }; 
@@ -372,6 +493,24 @@
             return sign + c;           
         }
 
+        // --- Mode Switching ---
+        function switchMode(newMode) {
+            mode = newMode;
+            document.getElementById('tab-gen').classList.toggle('active', mode === 'generator');
+            document.getElementById('tab-prac').classList.toggle('active', mode === 'practice');
+            
+            if (mode === 'generator') {
+                document.getElementById('generator-controls').classList.remove('hidden-mode');
+                document.getElementById('practice-controls').classList.add('hidden-mode');
+                findElement(); // Restore generator state
+            } else {
+                document.getElementById('generator-controls').classList.add('hidden-mode');
+                document.getElementById('practice-controls').classList.remove('hidden-mode');
+                generatePracticeQuestion(); // Start a question
+            }
+        }
+
+        // --- Generator Logic ---
         function findElement() {
             const inputVal = parseInt(document.getElementById('numInput').value);
             const errorDiv = document.getElementById('errorMsg');
@@ -385,17 +524,13 @@
                 errorDiv.innerText = "Enter valid number (1-118)";
                 return;
             }
-            
             errorDiv.innerText = "";
             currentElement = found;
 
-            const groupInfo = getElementGroup(currentElement.n);
-            document.getElementById('disp-number').innerText = currentElement.n;
-            document.getElementById('disp-symbol').innerText = currentElement.s;
-            document.getElementById('disp-name').innerText = currentElement.name;
-            document.getElementById('disp-group').innerText = groupInfo.g;
-            tile.style.backgroundColor = groupInfo.c;
+            // Update UI for Generator
+            renderTile(currentElement, "standard", 0);
 
+            // Populate Dropdowns
             isoSelect.innerHTML = ""; 
             const stdOption = document.createElement("option");
             stdOption.value = "standard";
@@ -425,69 +560,144 @@
                     ionSelect.add(opt);
                 });
             }
-
-            updateTile();
         }
 
         function updateTile() {
             if (!currentElement) return;
+            const isoVal = document.getElementById('isotopeSelect').value;
+            const ionVal = parseInt(document.getElementById('ionSelect').value);
+            renderTile(currentElement, isoVal, ionVal);
+        }
 
-            const isoSelect = document.getElementById('isotopeSelect');
-            const massDisplay = document.getElementById('disp-mass');
-            if (isoSelect.value === "standard") {
-                massDisplay.innerText = Math.round(currentElement.m);
+        // --- Practice Logic ---
+        function generatePracticeQuestion() {
+            // 1. Pick random element
+            const randIndex = Math.floor(Math.random() * periodicTable.length);
+            const el = periodicTable[randIndex];
+            currentElement = el;
+
+            // 2. Pick Isotope (use specific isotope mass or standard rounded if none)
+            let massNum;
+            if (el.iso && el.iso.length > 0) {
+                massNum = el.iso[Math.floor(Math.random() * el.iso.length)];
             } else {
-                massDisplay.innerText = isoSelect.value;
+                massNum = Math.round(el.m);
             }
 
-            const ionSelect = document.getElementById('ionSelect');
-            const chargeVal = parseInt(ionSelect.value);
-            const chargeDisplay = document.getElementById('disp-charge');
+            // 3. Pick Ion (use specific ion or 0)
+            let charge = 0;
+            // 50% chance to be an ion if possible
+            if (el.ions && el.ions.length > 0 && Math.random() > 0.5) {
+                charge = el.ions[Math.floor(Math.random() * el.ions.length)];
+            }
 
-            if (chargeVal === 0) {
+            // 4. Set Correct Answers
+            practiceData = {
+                Z: el.n,
+                A: massNum,
+                p: el.n,
+                n: massNum - el.n,
+                e: el.n - charge
+            };
+
+            // 5. Render Tile (Mass must show Integer Mass Number for calculation)
+            // Passing 'massNum' as string forces the render to show that specific number
+            renderTile(el, massNum.toString(), charge);
+
+            // 6. Clear Inputs
+            ['prac-z', 'prac-a', 'prac-p', 'prac-n', 'prac-e'].forEach(id => {
+                const inp = document.getElementById(id);
+                inp.value = "";
+                inp.className = ""; // clear colors
+            });
+            document.getElementById('practiceMsg').innerText = "";
+        }
+
+        function checkPracticeAnswer() {
+            const z = parseInt(document.getElementById('prac-z').value);
+            const a = parseInt(document.getElementById('prac-a').value);
+            const p = parseInt(document.getElementById('prac-p').value);
+            const n = parseInt(document.getElementById('prac-n').value);
+            const e = parseInt(document.getElementById('prac-e').value);
+
+            validateInput('prac-z', z, practiceData.Z);
+            validateInput('prac-a', a, practiceData.A);
+            validateInput('prac-p', p, practiceData.p);
+            validateInput('prac-n', n, practiceData.n);
+            validateInput('prac-e', e, practiceData.e);
+
+            if (z===practiceData.Z && a===practiceData.A && p===practiceData.p && n===practiceData.n && e===practiceData.e) {
+                document.getElementById('practiceMsg').innerText = "Correct! Great job.";
+                document.getElementById('practiceMsg').style.color = "var(--success)";
+            } else {
+                document.getElementById('practiceMsg').innerText = "Some answers are incorrect. Check the red boxes.";
+                document.getElementById('practiceMsg').style.color = "var(--error)";
+            }
+        }
+
+        function validateInput(id, val, correct) {
+            const el = document.getElementById(id);
+            if (val === correct) {
+                el.classList.add('correct');
+                el.classList.remove('incorrect');
+            } else {
+                el.classList.add('incorrect');
+                el.classList.remove('correct');
+            }
+        }
+
+        function showSolution() {
+            document.getElementById('prac-z').value = practiceData.Z;
+            document.getElementById('prac-a').value = practiceData.A;
+            document.getElementById('prac-p').value = practiceData.p;
+            document.getElementById('prac-n').value = practiceData.n;
+            document.getElementById('prac-e').value = practiceData.e;
+            checkPracticeAnswer();
+        }
+
+        // --- Shared Render ---
+        function renderTile(el, isoValue, chargeValue) {
+            const tile = document.getElementById('elementTile');
+            const groupInfo = getElementGroup(el.n);
+            
+            document.getElementById('disp-number').innerText = el.n;
+            document.getElementById('disp-symbol').innerText = el.s;
+            document.getElementById('disp-name').innerText = el.name;
+            document.getElementById('disp-group').innerText = groupInfo.g;
+            tile.style.backgroundColor = groupInfo.c;
+
+            // Mass
+            const massDisplay = document.getElementById('disp-mass');
+            if (isoValue === "standard") {
+                massDisplay.innerText = Math.round(el.m);
+            } else {
+                massDisplay.innerText = isoValue; // Shows integer for Practice
+            }
+
+            // Charge
+            const chargeDisplay = document.getElementById('disp-charge');
+            if (chargeValue === 0) {
                 chargeDisplay.innerText = ""; 
             } else {
-                chargeDisplay.innerText = formatCharge(chargeVal);
+                chargeDisplay.innerText = formatCharge(chargeValue);
             }
         }
 
         function downloadTile() {
-            const tileElement = document.getElementById('elementTile');
-            const elementName = document.getElementById('disp-name').innerText;
-            const isoSelect = document.getElementById('isotopeSelect');
-            const ionSelect = document.getElementById('ionSelect');
-            
-            let filename = `${elementName}`;
-            if (isoSelect.value !== "standard") {
-                filename += `-${isoSelect.value}`;
-            }
-            if (ionSelect.value !== "0") {
-                filename += `-Ion`;
-            }
-            filename += `-Tile.png`;
-
-            html2canvas(tileElement, {
-                scale: 3, 
-                useCORS: true, 
-                backgroundColor: null 
+            html2canvas(document.getElementById('elementTile'), {
+                scale: 3, useCORS: true, backgroundColor: null 
             }).then(canvas => {
-                const imageURL = canvas.toDataURL("image/png");
-                const downloadLink = document.createElement('a');
-                downloadLink.href = imageURL;
-                downloadLink.download = filename;
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-            }).catch(err => {
-                 console.error("Image download failed:", err);
-                 alert("Error generating image.");
+                const a = document.createElement('a');
+                a.href = canvas.toDataURL("image/png");
+                a.download = document.getElementById('disp-name').innerText + "-Tile.png";
+                a.click();
             });
         }
 
-        findElement(); 
-
-        document.getElementById("numInput").addEventListener("keypress", function(event) {
-            if (event.key === "Enter") findElement();
+        // Init
+        findElement();
+        document.getElementById("numInput").addEventListener("keypress", e => {
+            if (e.key === "Enter") findElement();
         });
     </script>
 </body>
